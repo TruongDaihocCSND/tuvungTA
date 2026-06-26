@@ -1,0 +1,894 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Law Enforcement Vocab Game</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;800&display=swap" rel="stylesheet">
+    
+    <style>
+        body {
+            font-family: 'Montserrat', sans-serif;
+            background-color: #f2f2f2;
+            overflow: hidden; /* Prevent scrolling during gameplay */
+            touch-action: manipulation;
+        }
+        
+        /* Kahoot-like button colors and shadows */
+        .btn-red { background-color: #e21b3c; box-shadow: 0 4px 0 #b0102a; }
+        .btn-blue { background-color: #1368ce; box-shadow: 0 4px 0 #0f51a1; }
+        .btn-yellow { background-color: #d89e00; box-shadow: 0 4px 0 #a87b00; }
+        .btn-green { background-color: #26890c; box-shadow: 0 4px 0 #1c6409; }
+        
+        .answer-btn {
+            transition: transform 0.1s, box-shadow 0.1s, filter 0.2s;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .answer-btn:active {
+            transform: translateY(4px);
+            box-shadow: 0 0 0 transparent !important;
+        }
+
+        .answer-btn:hover {
+            filter: brightness(1.1);
+        }
+
+        .answer-btn.disabled {
+            pointer-events: none;
+            opacity: 0.9;
+        }
+
+        /* Pure CSS Shapes for buttons */
+        .shape-container {
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 16px;
+            flex-shrink: 0;
+        }
+
+        .shape-triangle {
+            width: 0; height: 0; 
+            border-left: 14px solid transparent;
+            border-right: 14px solid transparent;
+            border-bottom: 24px solid white;
+        }
+        .shape-diamond {
+            width: 20px; height: 20px; 
+            background: white; 
+            transform: rotate(45deg);
+        }
+        .shape-circle {
+            width: 24px; height: 24px; 
+            background: white; 
+            border-radius: 50%;
+        }
+        .shape-square {
+            width: 22px; height: 22px; 
+            background: white;
+        }
+
+        /* Animations */
+        @keyframes popIn {
+            0% { transform: scale(0.8); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .animate-pop {
+            animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+
+        .timer-bar-container {
+            background-color: #ccc;
+            height: 12px;
+            border-radius: 6px;
+            overflow: hidden;
+        }
+        
+        .timer-bar {
+            height: 100%;
+            background-color: #333;
+            transition: width 0.1s linear, background-color 0.3s;
+        }
+
+        /* Background patterns */
+        .bg-pattern {
+            background-image: radial-gradient(#d1d5db 2px, transparent 2px);
+            background-size: 30px 30px;
+        }
+    </style>
+</head>
+<body class="h-screen w-screen flex flex-col bg-pattern">
+
+    <!-- Start Screen -->
+    <div id="start-screen" class="absolute inset-0 flex flex-col items-center justify-center bg-[#46178f] z-50 transition-opacity duration-500">
+        <div class="bg-white p-8 rounded-2xl shadow-2xl text-center max-w-md w-[90%] animate-pop">
+            <h1 class="text-4xl font-extrabold text-[#46178f] mb-2 tracking-tight">Cảnh Sát Ngữ</h1>
+            <p class="text-gray-600 font-bold mb-6">Law Enforcement Vocab Game</p>
+            <div class="space-y-4">
+                <p class="text-sm text-gray-500 mb-6">Kiểm tra từ vựng tiếng Anh chuyên ngành Cảnh sát. Nhanh tay chọn đáp án đúng để ghi điểm cao!</p>
+                <button onclick="startGame()" class="w-full py-4 text-xl font-bold text-white bg-[#333] rounded-lg hover:bg-black transition-colors shadow-[0_4px_0_#000] active:translate-y-[4px] active:shadow-none">
+                    Bắt đầu chơi
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Game Header -->
+    <header class="w-full p-4 flex justify-between items-center bg-white shadow-md z-10">
+        <div class="font-bold text-xl text-gray-800" id="question-counter">Câu: 1/10</div>
+        <div class="font-black text-2xl text-[#46178f] bg-gray-100 px-4 py-1 rounded-full border-2 border-gray-200" id="score-display">0</div>
+    </header>
+
+    <!-- Main Game Area -->
+    <main class="flex-grow flex flex-col p-4 md:p-8 max-w-5xl mx-auto w-full relative">
+        
+        <!-- Question Container -->
+        <div class="flex-grow flex flex-col items-center justify-center mb-6">
+            <div class="bg-white p-6 md:p-10 rounded-xl shadow-lg w-full text-center border-t-8 border-[#46178f]">
+                <h2 class="text-3xl md:text-5xl font-extrabold text-gray-800 tracking-wide" id="question-text">Question goes here</h2>
+                <p class="text-gray-500 mt-4 font-semibold text-lg" id="question-type-hint">Nghĩa tiếng Việt là gì?</p>
+            </div>
+            
+            <!-- Timer -->
+            <div class="w-full mt-6">
+                <div class="timer-bar-container">
+                    <div id="timer-bar" class="timer-bar w-full"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Answers Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 h-1/2 min-h-[300px]" id="answers-container">
+            <!-- Buttons generated by JS -->
+        </div>
+    </main>
+
+    <!-- Feedback Overlay (Between questions) -->
+    <div id="feedback-screen" class="absolute inset-0 flex flex-col items-center justify-center z-40 hidden transition-opacity duration-300">
+        <div id="feedback-bg" class="absolute inset-0 bg-opacity-90"></div>
+        <div class="z-50 text-center text-white animate-pop">
+            <h2 id="feedback-title" class="text-6xl font-black mb-4 drop-shadow-lg">Đúng!</h2>
+            <div class="bg-black bg-opacity-30 rounded-full px-8 py-3 inline-block mb-8">
+                <p class="text-2xl font-bold">+<span id="feedback-points">0</span> điểm</p>
+            </div>
+            <div>
+                <p class="text-xl mb-2 font-semibold text-white/80">Đáp án đúng là:</p>
+                <p id="feedback-correct-answer" class="text-3xl font-extrabold bg-white text-gray-900 px-6 py-2 rounded-lg shadow-xl inline-block"></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- End Game Screen -->
+    <div id="end-screen" class="absolute inset-0 flex flex-col items-center justify-center bg-[#46178f] z-50 hidden">
+        <div class="bg-white p-10 rounded-3xl shadow-2xl text-center max-w-lg w-[90%] animate-pop border-b-8 border-[#2d0f5c]">
+            <h1 class="text-5xl font-black text-gray-800 mb-2">Kết quả!</h1>
+            <p id="end-message" class="text-xl text-gray-500 font-bold mb-8">Bạn làm rất tốt</p>
+            
+            <div class="bg-gray-100 rounded-xl p-6 mb-8 border-2 border-gray-200">
+                <p class="text-sm text-gray-500 font-bold uppercase tracking-wider mb-1">Tổng điểm</p>
+                <p id="final-score" class="text-6xl font-black text-[#46178f]">0</p>
+            </div>
+            
+            <button onclick="startGame()" class="w-full py-4 text-xl font-bold text-white bg-[#26890c] rounded-xl hover:brightness-110 transition-all shadow-[0_6px_0_#1c6409] active:translate-y-[6px] active:shadow-none">
+                Chơi lại
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // Vocabulary Database extracted from the provided text
+        const vocabDB = [
+            // Unit 1
+            { en: "assault", vi: "tấn công" },
+            { en: "badge", vi: "biển hiệu" },
+            { en: "baton", vi: "gậy ma-trắc" },
+            { en: "book", vi: "buộc tội" },
+            { en: "briefing", vi: "họp" },
+            { en: "bullet-proof", vi: "chống đạn" },
+            { en: "civilian", vi: "dân sự" },
+            { en: "custody", vi: "tạm giữ" },
+            { en: "customs", vi: "hải quan" },
+            { en: "defuse", vi: "vô hiệu hoá" },
+            { en: "enforce", vi: "thi hành" },
+            { en: "escort", vi: "hộ tống" },
+            { en: "fight", vi: "ẩu đả" },
+            { en: "gun", vi: "súng" },
+            { en: "handcuffs", vi: "còng tay" },
+            { en: "hostage", vi: "con tin" },
+            { en: "illegal", vi: "trái pháp luật" },
+            { en: "injury", vi: "thương tích" },
+            { en: "investigate", vi: "điều tra" },
+            { en: "kidnapping", vi: "bắt cóc" },
+            { en: "kit", vi: "bộ trang bị" },
+            { en: "monitor", vi: "kiểm tra" },
+            { en: "offender", vi: "người vi phạm" },
+            { en: "partner", vi: "đồng đội; đối tác" },
+            { en: "patrol", vi: "tuần tra" },
+            { en: "police", vi: "duy trì pháp luật, trật tự xã hội" },
+            { en: "promotion", vi: "thăng chức" },
+            { en: "protect", vi: "bảo vệ" },
+            { en: "rank", vi: "cấp bậc" },
+            { en: "ransom", vi: "tiền chuộc" },
+            { en: "report to", vi: "báo cáo" },
+            { en: "rescue", vi: "cứu hộ" },
+            { en: "rota", vi: "danh sách trực" },
+            { en: "shift", vi: "ca trực" },
+            { en: "smuggle", vi: "buôn lậu" },
+            { en: "smuggler", vi: "kẻ buôn lậu" },
+            { en: "statement", vi: "lời khai" },
+            { en: "taser", vi: "súng điện" },
+            { en: "terrorism", vi: "khủng bố" },
+            { en: "uniform", vi: "đồng phục" },
+            { en: "unit", vi: "đơn vị" },
+            
+            // Unit 2
+            { en: "accident", vi: "tai nạn" },
+            { en: "bonnet", vi: "nắp ca pô" },
+            { en: "boot", vi: "khoang hành lý" },
+            { en: "category", vi: "hạng (GPLX)" },
+            { en: "child seat", vi: "ghế trẻ em" },
+            { en: "coach", vi: "xe buýt đường dài" },
+            { en: "compulsory", vi: "bắt buộc" },
+            { en: "control", vi: "trung tâm kiểm soát" },
+            { en: "cracked", vi: "(kính) nứt" },
+            { en: "driving licence", vi: "bằng lái xe" },
+            { en: "exceed", vi: "vượt quá tốc độ cho phép" },
+            { en: "expiry", vi: "ngày hết hạn" },
+            { en: "fine", vi: "tiền phạt" },
+            { en: "flat", vi: "(lốp) xẹp" },
+            { en: "fog lights", vi: "đèn sương mù" },
+            { en: "overload", vi: "chở quá tải trọng" },
+            { en: "overtake", vi: "(xe) vượt" },
+            { en: "penalty", vi: "hình phạt" },
+            { en: "penalty points", vi: "hình phạt bấm lỗ bằng lái" },
+            { en: "petrol", vi: "xăng dầu" },
+            { en: "registration plate", vi: "biển đăng ký phương tiện" },
+            { en: "regulations", vi: "quy định" },
+            { en: "right-hand", vi: "bên phải" },
+            { en: "road sign", vi: "biển báo đường bộ" },
+            { en: "seat belt", vi: "dây an toàn" },
+            { en: "signature", vi: "chữ ký" },
+            { en: "slow down", vi: "giảm tốc độ" },
+            { en: "speeding", vi: "lỗi quá tốc độ" },
+            { en: "speed limit", vi: "giới hạn tốc độ" },
+            { en: "steering wheel", vi: "bánh lái; vô lăng" },
+            { en: "tyre", vi: "lốp xe" },
+            { en: "valid", vi: "còn giá trị" },
+            { en: "vehicle", vi: "phương tiện" },
+            { en: "windscreen", vi: "kính chắn gió" },
+            
+            // Unit 3
+            { en: "abandon", vi: "bỏ rơi" },
+            { en: "agency", vi: "cơ quan" },
+            { en: "anti-social behaviour", vi: "hành vi phản xã hội" },
+            { en: "arms", vi: "vũ khí" },
+            { en: "arrest", vi: "bắt giữ" },
+            { en: "beat", vi: "khu vực tuần tra" },
+            { en: "beggar", vi: "ăn mày" },
+            { en: "cattle-rustling", vi: "tội ăn trộm gia súc" },
+            { en: "CCTV", vi: "hệ thống camera giám sát" },
+            { en: "cell", vi: "buồng giam" },
+            { en: "community", vi: "cộng đồng" },
+            { en: "community policing", vi: "chính sách quản lý cộng đồng" },
+            { en: "confiscate", vi: "tịch thu" },
+            { en: "crack down on", vi: "triệt phá" },
+            { en: "crime prevention", vi: "phòng ngừa tội phạm" },
+            { en: "criminal", vi: "tội phạm" },
+            { en: "deal drugs", vi: "buôn bán ma tuý lẻ" },
+            { en: "deal with", vi: "xử lý" },
+            { en: "disorder", vi: "gây rối trật tự công cộng" },
+            { en: "dump", vi: "vứt rác" },
+            { en: "emergency", vi: "khẩn cấp" },
+            { en: "estate", vi: "khu tái định cư" },
+            { en: "graffiti", vi: "tranh tường" },
+            { en: "harassment", vi: "quấy rối" },
+            { en: "hen party", vi: "tiệc chia tay độc thân nữ" },
+            { en: "house-to-house enquiries", vi: "điều tra từng nhà" },
+            { en: "immigrant", vi: "người nhập cư" },
+            { en: "intimidate", vi: "đe doạ" },
+            { en: "issue a warning to", vi: "cảnh cáo" },
+            { en: "pickpocket", vi: "kẻ móc túi" },
+            { en: "property", vi: "tài sản" },
+            { en: "provide", vi: "cung cấp" },
+            { en: "representative", vi: "đại diện" },
+            { en: "resident", vi: "cư dân" },
+            { en: "rowdy", vi: "ồn ào; náo loạn" },
+            { en: "rubbish", vi: "rác" },
+            { en: "spray", vi: "xịt (sơn)" },
+            { en: "stag party", vi: "tiệc chia tay độc thân nam" },
+            { en: "suspect", vi: "nghi phạm" },
+            { en: "threaten", vi: "đe doạ" },
+            { en: "unemployed", vi: "thất nghiệp" },
+            { en: "uniformed presence", vi: "cảnh sát mặc đồng phục" },
+            { en: "unstable", vi: "bất ổn" },
+            { en: "vandalize", vi: "huỷ hoại tài sản" },
+            { en: "visible", vi: "nhìn thấy được" },
+
+            // Unit 4
+            { en: "abdomen", vi: "bụng" },
+            { en: "ankle", vi: "mắt cá" },
+            { en: "assailant", vi: "kẻ tấn công" },
+            { en: "assess", vi: "đánh giá" },
+            { en: "ATM", vi: "máy rút tiền" },
+            { en: "attend", vi: "tham dự" },
+            { en: "bandage", vi: "băng vết thương" },
+            { en: "bleed", vi: "chảy máu" },
+            { en: "blood", vi: "máu" },
+            { en: "brake", vi: "phanh; thắng" },
+            { en: "breathe", vi: "hít thở" },
+            { en: "bruise", vi: "vết bầm" },
+            { en: "collapse", vi: "đột quỵ" },
+            { en: "chest", vi: "ngực" },
+            { en: "crash", vi: "đâm va" },
+            { en: "damage", vi: "phá hỏng" },
+            { en: "demand", vi: "yêu cầu; đòi hỏi" },
+            { en: "demonstration", vi: "biểu tình" },
+            { en: "dial", vi: "quay số điện thoại" },
+            { en: "domestic abuse", vi: "bạo lực gia đình" },
+            { en: "explosion", vi: "vụ nổ" },
+            { en: "fracture", vi: "rạn / nứt xương" },
+            { en: "grab", vi: "chộp lấy" },
+            { en: "hurt", vi: "gây thương tích" },
+            { en: "HAZMAT", vi: "vật liệu nguy hiểm" },
+            { en: "incident", vi: "vụ việc; sự cố" },
+            { en: "intersection", vi: "giao lộ" },
+            { en: "neck", vi: "cổ" },
+            { en: "outstanding", vi: "nổi bật" },
+            { en: "pain", vi: "cơn đau" },
+            { en: "priority", vi: "ưu tiên" },
+            { en: "pull out", vi: "lao ra (phương tiện)" },
+            { en: "rape", vi: "cưỡng hiếp" },
+            { en: "recognise", vi: "nhận ra" },
+            { en: "shoulder", vi: "vai" },
+            { en: "skid", vi: "trượt (bánh)" },
+            { en: "stamp", vi: "dẫm" },
+            { en: "suicide", vi: "tự sát" },
+            { en: "surround", vi: "bao vây" },
+
+            // Unit 5
+            { en: "accomplice", vi: "đồng phạm" },
+            { en: "at risk", vi: "gặp nguy hiểm" },
+            { en: "alarm", vi: "chuông báo động" },
+            { en: "appeal", vi: "kêu gọi" },
+            { en: "attack", vi: "tấn công" },
+            { en: "average", vi: "trung bình" },
+            { en: "bolt", vi: "then cài" },
+            { en: "burglar", vi: "tên trộm (đột nhập)" },
+            { en: "crime reduction", vi: "phòng ngừa tội phạm" },
+            { en: "deter", vi: "ngăn ngừa" },
+            { en: "drink-driving", vi: "lái xe khi say rượu" },
+            { en: "exploit", vi: "lợi dụng" },
+            { en: "fence", vi: "hàng rào" },
+            { en: "funding", vi: "quỹ" },
+            { en: "high-end", vi: "cao cấp" },
+            { en: "hotspot", vi: "điểm nóng" },
+            { en: "initiative", vi: "sáng kiến" },
+            { en: "intruder", vi: "kẻ đột nhập" },
+            { en: "joyriding", vi: "trộm xe vui" },
+            { en: "ladder", vi: "cái thang" },
+            { en: "launch", vi: "tiến hành" },
+            { en: "leaflet", vi: "tờ rơi" },
+            { en: "legitimate", vi: "hợp pháp" },
+            { en: "lock", vi: "khoá" },
+            { en: "loophole", vi: "kẽ hở" },
+            { en: "motion detector lighting", vi: "chiếu sáng cảm biến" },
+            { en: "neighbourhood", vi: "khu vực lân cận" },
+            { en: "opportunistic", vi: "cơ hội chủ nghĩa" },
+            { en: "poster", vi: "áp phích" },
+            { en: "preventable", vi: "có thể phòng ngừa" },
+            { en: "recover", vi: "thu hồi" },
+            { en: "robbery", vi: "vụ cướp" },
+            { en: "secure", vi: "an toàn" },
+            { en: "security", vi: "an ninh" },
+            { en: "shoplifting", vi: "trộm đồ trong cửa hàng" },
+            { en: "spy hole", vi: "lỗ quan sát" },
+            { en: "take down", vi: "ghi chú" },
+            { en: "target", vi: "mục tiêu" },
+            { en: "timer switch", vi: "thiết bị hẹn giờ" },
+            { en: "theft", vi: "vụ trộm" },
+            { en: "toolbox", vi: "hộp dụng cụ" },
+            { en: "trafficking", vi: "vận chuyển (hàng cấm)" },
+            { en: "update", vi: "cập nhật" },
+            { en: "weakness", vi: "điểm yếu" },
+
+            // Unit 6
+            { en: "addict", vi: "con nghiện" },
+            { en: "addictive", vi: "gây nghiện" },
+            { en: "bay", vi: "khu đỗ xe" },
+            { en: "channel", vi: "kênh, luồng" },
+            { en: "corrupt", vi: "làm suy đồi" },
+            { en: "counselling", vi: "tư vấn" },
+            { en: "dealer", vi: "người bán ma tuý" },
+            { en: "death penalty", vi: "tử hình" },
+            { en: "declare", vi: "khai báo (thuế)" },
+            { en: "derive", vi: "phái sinh" },
+            { en: "dilate", vi: "giãn nở (đồng tử)" },
+            { en: "dope", vi: "ma tuý" },
+            { en: "forgery", vi: "hành vi làm giả" },
+            { en: "high", vi: "phê (thuốc)" },
+            { en: "impair", vi: "làm suy yếu" },
+            { en: "insignificant", vi: "không quan trọng" },
+            { en: "intent", vi: "mục đích" },
+            { en: "judgement", vi: "phán quyết" },
+            { en: "manifest", vi: "bản kê (hàng hoá)" },
+            { en: "opium", vi: "thuốc phiện" },
+            { en: "painkiller", vi: "thuốc giảm đau" },
+            { en: "penniless", vi: "không 1 xu dính túi" },
+            { en: "pit", vi: "hố kỹ thuật" },
+            { en: "pull up", vi: "dừng (phương tiện)" },
+            { en: "pupil", vi: "đồng tử (mắt)" },
+            { en: "quantity", vi: "lượng" },
+            { en: "sedative", vi: "thuốc an thần" },
+            { en: "sentence", vi: "bản án" },
+            { en: "severe", vi: "nghiêm khắc" },
+            { en: "slur", vi: "nói nhịu" },
+            { en: "sniffer dog", vi: "chó đánh hơi" },
+            { en: "stimulant", vi: "chất kích thích" },
+            { en: "stoned", vi: "phê thuốc" },
+            { en: "supply", vi: "cung cấp" },
+            { en: "tax", vi: "tiền thuế" },
+            { en: "tolerant", vi: "khoan dung" },
+            { en: "treatment", vi: "chữa trị" },
+            { en: "user", vi: "người dùng ma tuý" },
+            { en: "vary", vi: "thay đổi" },
+            { en: "weave", vi: "lảo đảo" },
+            { en: "weighbridge", vi: "cầu cân" },
+
+            // Unit 7
+            { en: "accuse", vi: "buộc tội" },
+            { en: "back-up", vi: "hỗ trợ" },
+            { en: "ban", vi: "cấm" },
+            { en: "beat", vi: "đánh; đập" },
+            { en: "body armour", vi: "áo giáp" },
+            { en: "breach", vi: "vi phạm" },
+            { en: "break out", vi: "bùng nổ" },
+            { en: "chaos", vi: "hỗn loạn" },
+            { en: "civil disorder", vi: "gây rối trật tự công cộng" },
+            { en: "comply", vi: "tuân thủ" },
+            { en: "contain", vi: "bao vây" },
+            { en: "convict", vi: "kết tội" },
+            { en: "detachment", vi: "triển khai" },
+            { en: "disperse", vi: "giải tán" },
+            { en: "disruption", vi: "đơn vị" },
+            { en: "disturbance", vi: "gây rối" },
+            { en: "elbow", vi: "cùi chỏ" },
+            { en: "escalate", vi: "leo thang" },
+            { en: "freeze", vi: "đóng băng; đứng im" },
+            { en: "frisk", vi: "lục soát" },
+            { en: "gas mask", vi: "mặt nạ chống khí độc" },
+            { en: "hooligan", vi: "CĐV quá khích" },
+            { en: "infiltrate", vi: "thâm nhập" },
+            { en: "magistrate", vi: "thẩm phán toà sơ thẩm" },
+            { en: "march", vi: "tuần hành" },
+            { en: "mounted police", vi: "cảnh sát kỵ binh" },
+            { en: "plain-clothes", vi: "thường phục" },
+            { en: "prosecute", vi: "truy tố" },
+            { en: "protest", vi: "biểu tình" },
+            { en: "punishment", vi: "hình phạt" },
+            { en: "release", vi: "trả tự do" },
+            { en: "riot", vi: "bạo loạn" },
+            { en: "shield", vi: "khiên, lá chắn" },
+            { en: "spread", vi: "lan rộng" },
+            { en: "strike", vi: "đình công" },
+            { en: "supporter", vi: "người ủng hộ" },
+            { en: "suppress", vi: "đàn áp" },
+            { en: "tactic", vi: "chiến thuật" },
+            { en: "tear gas", vi: "hơi cay" },
+            { en: "trouble-maker", vi: "kẻ gây rối" },
+            { en: "twist", vi: "vặn; xoắn" },
+            { en: "water cannon", vi: "vòi rồng" },
+            { en: "whip", vi: "roi da" },
+
+            // Unit 8
+            { en: "admit", vi: "thừa nhận" },
+            { en: "archive", vi: "hồ sơ lưu trữ" },
+            { en: "bail", vi: "tiền bảo lãnh" },
+            { en: "blur", vi: "nhoè" },
+            { en: "armoury", vi: "kho vũ khí" },
+            { en: "caution", vi: "cảnh báo" },
+            { en: "charge", vi: "cáo buộc tội danh" },
+            { en: "clarification", vi: "giải thích rõ" },
+            { en: "consult", vi: "tham vấn" },
+            { en: "court", vi: "toà án" },
+            { en: "detainee", vi: "bị can (tạm giữ)" },
+            { en: "evaluate", vi: "đánh giá" },
+            { en: "evidence", vi: "chứng cứ" },
+            { en: "fidget", vi: "bồn chồn" },
+            { en: "fingerprint", vi: "dấu vân tay" },
+            { en: "guilty", vi: "có tội" },
+            { en: "harm", vi: "gây hại" },
+            { en: "hold", vi: "tạm giữ" },
+            { en: "ink", vi: "bôi mực" },
+            { en: "jail", vi: "nhà tù" },
+            { en: "liar", vi: "kẻ nói dối" },
+            { en: "line-up", vi: "xếp hàng nhận diện" },
+            { en: "lookalike", vi: "người có hình dáng tương tự" },
+            { en: "mattress", vi: "thảm; chiếu" },
+            { en: "muster room", vi: "phòng giao ban" },
+            { en: "palm", vi: "lòng bàn tay" },
+            { en: "reverse order", vi: "trật tự ngược lại" },
+            { en: "sally port", vi: "cổng tiếp nhận" },
+            { en: "sample", vi: "mẫu (vật chứng)" },
+            { en: "scan", vi: "quét" },
+            { en: "seal", vi: "niêm phong" },
+            { en: "security", vi: "an ninh" },
+            { en: "smudge", vi: "lem" },
+            { en: "still photo", vi: "ảnh tĩnh" },
+            { en: "records", vi: "tiền án; tiền sự" },
+            { en: "register", vi: "hồ sơ" },
+            { en: "remand", vi: "tạm giam" },
+            { en: "retain", vi: "giữ" },
+            { en: "right", vi: "quyền" },
+            { en: "sober", vi: "tỉnh táo" },
+            { en: "solicitor", vi: "luật sư tư vấn" },
+            { en: "substance", vi: "chất" },
+            { en: "thumb", vi: "ngón cái" },
+            { en: "transcription", vi: "văn bản viết" },
+
+            // Unit 9
+            { en: "anatomy", vi: "giải phẫu học" },
+            { en: "anonymous", vi: "nặc danh" },
+            { en: "ballistics", vi: "đạn đạo học" },
+            { en: "bacteria", vi: "vi khuẩn" },
+            { en: "bone", vi: "xương" },
+            { en: "casing", vi: "vỏ đạn" },
+            { en: "cell", vi: "tế bào" },
+            { en: "clean-shaven", vi: "nhẵn nhụi" },
+            { en: "cold case", vi: "án nguội" },
+            { en: "comb", vi: "lược" },
+            { en: "container", vi: "vật chứa" },
+            { en: "contaminated", vi: "nhiễm bẩn" },
+            { en: "coroner", vi: "bác sỹ pháp y" },
+            { en: "crime-scene tape", vi: "băng phong toả hiện trường" },
+            { en: "dust", vi: "phết bột hiện vân tay" },
+            { en: "eliminate", vi: "loại bỏ" },
+            { en: "fibre", vi: "sợi" },
+            { en: "forensic", vi: "kỹ thuật hình sự" },
+            { en: "fragment", vi: "mảnh vỡ" },
+            { en: "genetic", vi: "di truyền" },
+            { en: "goatee", vi: "râu dê" },
+            { en: "homicide", vi: "vụ án mạng" },
+            { en: "implicate", vi: "ám chỉ" },
+            { en: "layout", vi: "bố cục" },
+            { en: "lift card", vi: "chỉ bản" },
+            { en: "log", vi: "ghi vào hồ sơ" },
+            { en: "magnifying glass", vi: "kính lúp" },
+            { en: "mole", vi: "nốt ruồi" },
+            { en: "overalls", vi: "đồ bảo hộ" },
+            { en: "paternity", vi: "phụ hệ" },
+            { en: "pathology", vi: "bệnh học" },
+            { en: "perpetrator", vi: "thủ phạm" },
+            { en: "piercing", vi: "khuyên; xỏ" },
+            { en: "poisoning", vi: "đầu độc" },
+            { en: "pony tail", vi: "tóc đuôi ngựa" },
+            { en: "powder", vi: "bột" },
+            { en: "profiling", vi: "phân loại tội phạm" },
+            { en: "residue", vi: "tàn thuốc súng" },
+            { en: "saliva", vi: "nước bọt" },
+            { en: "sample", vi: "mẫu vật chứng" },
+            { en: "scalpel", vi: "dao phẫu thuật" },
+            { en: "scar", vi: "sẹo" },
+            { en: "semen", vi: "tinh dịch" },
+            { en: "sketch", vi: "phác hoạ" },
+            { en: "smear slide", vi: "lam kính hiển vi" },
+            { en: "spiky", vi: "tóc đinh" },
+            { en: "stocky", vi: "đậm; chắc" },
+            { en: "stubble", vi: "lởm chởm" },
+            { en: "stud", vi: "đầu" },
+            { en: "swab", vi: "mẫu lấy bằng que" },
+            { en: "tag", vi: "dán nhãn" },
+            { en: "tattoo", vi: "hình xăm" },
+            { en: "toxicology", vi: "độc học" },
+            { en: "trace", vi: "dấu vết" },
+            { en: "tweezers", vi: "kẹp, nhíp" },
+            { en: "vacuum", vi: "chân không" },
+            { en: "vomit", vi: "chất nôn" },
+
+            // Unit 10
+            { en: "abolish", vi: "bãi bỏ" },
+            { en: "abscond", vi: "bỏ trốn" },
+            { en: "acquitted", vi: "tuyên vô tội" },
+            { en: "adulterer", vi: "ngoại tình" },
+            { en: "alias", vi: "bí danh" },
+            { en: "ammunition", vi: "đạn dược" },
+            { en: "assets", vi: "tài sản" },
+            { en: "bench", vi: "ghế chủ toạ" },
+            { en: "breach", vi: "vi phạm luật pháp" },
+            { en: "breathalyzer", vi: "thiết bị đo nồng độ cồn" },
+            { en: "capital punishment", vi: "hình phạt tử hình" },
+            { en: "community service", vi: "lao động công ích" },
+            { en: "concrete", vi: "chắc chắn" },
+            { en: "crack", vi: "dạng cocaine ba-zơ" },
+            { en: "custodial sentence", vi: "hình phạt tù" },
+            { en: "defendant", vi: "bị cáo" },
+            { en: "deliver", vi: "đưa ra phán quyết" },
+            { en: "dock", vi: "bục bị cáo" },
+            { en: "drop", vi: "dừng; bỏ dở" },
+            { en: "extradition", vi: "dẫn độ" },
+            { en: "freeze", vi: "đóng băng tài sản" },
+            { en: "fugitive", vi: "tội phạm bỏ trốn" },
+            { en: "harsh", vi: "nghiêm khắc" },
+            { en: "house arrest", vi: "quản thúc tại gia" },
+            { en: "imprisonment", vi: "hình phạt tù" },
+            { en: "jury", vi: "bồi thẩm đoàn" },
+            { en: "lenient", vi: "khoan hồng" },
+            { en: "modus operandi", vi: "phương thức gây án" },
+            { en: "mugshot", vi: "ảnh đối tượng" },
+            { en: "persistent", vi: "kiên trì" },
+            { en: "plea", vi: "lời bào chữa" },
+            { en: "plead", vi: "nhận tội" },
+            { en: "prohibited", vi: "cấm" },
+            { en: "religious", vi: "tôn giáo" },
+            { en: "represent", vi: "đại diện" },
+            { en: "restorative justice", vi: "hình phạt cải tạo" },
+            { en: "restore", vi: "phục hồi" },
+            { en: "sanction", vi: "chế tài" },
+            { en: "serial-killer", vi: "sát thủ hàng loạt" },
+            { en: "shame", vi: "sự xấu hổ" },
+            { en: "soft option", vi: "lựa chọn hành động nhẹ nhàng" },
+            { en: "source", vi: "nguồn thông tin" },
+            { en: "summon", vi: "triệu tập" },
+            { en: "suspended sentence", vi: "án treo" },
+            { en: "try", vi: "xét xử" },
+            { en: "verdict", vi: "phán quyết" },
+            { en: "wig", vi: "tóc giả" },
+
+            // Unit 12
+            { en: "abuse", vi: "lạm dụng" },
+            { en: "antique", vi: "cổ vật" },
+            { en: "artefact", vi: "cổ vật" },
+            { en: "beneficiary", vi: "đối tượng hưởng lợi" },
+            { en: "body language", vi: "ngôn ngữ hình thể" },
+            { en: "bushmeat", vi: "thịt săn" },
+            { en: "carving", vi: "điêu khắc" },
+            { en: "circulation", vi: "hiện hành" },
+            { en: "Cold War", vi: "chiến tranh lạnh" },
+            { en: "colonialism", vi: "chủ nghĩa thực dân" },
+            { en: "conflict", vi: "xung đột" },
+            { en: "conservationist", vi: "nhà bảo vệ môi trường" },
+            { en: "culture shock", vi: "sốc văn hoá" },
+            { en: "defining issue", vi: "vấn đề hàng đầu" },
+            { en: "deploy", vi: "triển khai" },
+            { en: "drug lord", vi: "trùm ma tuý" },
+            { en: "endangered", vi: "bị đe doạ tuyệt chủng" },
+            { en: "facilitate", vi: "tạo điều kiện" },
+            { en: "finance", vi: "tài trợ" },
+            { en: "flooding", vi: "lũ lụt" },
+            { en: "forge", vi: "làm giả" },
+            { en: "fund", vi: "tài trợ" },
+            { en: "hazardous", vi: "nguy hiểm" },
+            { en: "immobilized", vi: "tê liệt" },
+            { en: "incompetence", vi: "năng lực kém" },
+            { en: "irreplaceable", vi: "không thể thay thế" },
+            { en: "ivory", vi: "ngà voi" },
+            { en: "logging", vi: "phá rừng" },
+            { en: "loot", vi: "cướp bóc" },
+            { en: "network", vi: "mạng lưới" },
+            { en: "poaching", vi: "nạn săn bắn trộm" },
+            { en: "policy-makers", vi: "nhà hoạch định chính sách" },
+            { en: "posting", vi: "sự bổ nhiệm" },
+            { en: "proliferate", vi: "nảy nở" },
+            { en: "secretariat", vi: "tổng hành dinh" },
+            { en: "sensitivity", vi: "sự nhạy cảm" },
+            { en: "skills", vi: "kỹ năng" },
+            { en: "stabilize", vi: "ổn định" },
+            { en: "statue", vi: "bức tượng" },
+            { en: "stereotype", vi: "phân loại" },
+            { en: "tackle", vi: "xử lý" },
+            { en: "timber", vi: "gỗ xẻ" },
+            { en: "transcend", vi: "vượt qua" },
+            { en: "transnational", vi: "xuyên quốc gia" },
+            { en: "tusk", vi: "ngà voi" },
+            { en: "undercover", vi: "ngầm (cài điệp viên)" },
+            { en: "waste", vi: "chất thải" },
+            { en: "wildlife", vi: "động vật hoang dã" }
+        ];
+
+        let TOTAL_QUESTIONS = vocabDB.length;
+        const TIME_LIMIT = 15; // seconds per question
+        const MAX_POINTS = 1000;
+        
+        let currentQuestions = [];
+        let currentQuestionIndex = 0;
+        let score = 0;
+        let timerInterval;
+        let timeLeft = TIME_LIMIT;
+        let isAnsweringAllowed = false;
+        let currentCorrectAnswer = "";
+
+        // UI Elements
+        const startScreen = document.getElementById('start-screen');
+        const endScreen = document.getElementById('end-screen');
+        const feedbackScreen = document.getElementById('feedback-screen');
+        const feedbackBg = document.getElementById('feedback-bg');
+        const feedbackTitle = document.getElementById('feedback-title');
+        const feedbackPoints = document.getElementById('feedback-points');
+        const feedbackCorrectAnswer = document.getElementById('feedback-correct-answer');
+        
+        const questionText = document.getElementById('question-text');
+        const questionCounter = document.getElementById('question-counter');
+        const scoreDisplay = document.getElementById('score-display');
+        const answersContainer = document.getElementById('answers-container');
+        const timerBar = document.getElementById('timer-bar');
+
+        const buttonStyles = [
+            { class: 'btn-red', shape: 'shape-triangle' },
+            { class: 'btn-blue', shape: 'shape-diamond' },
+            { class: 'btn-yellow', shape: 'shape-circle' },
+            { class: 'btn-green', shape: 'shape-square' }
+        ];
+
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        }
+
+        function startGame() {
+            // Reset state
+            score = 0;
+            currentQuestionIndex = 0;
+            updateScoreDisplay();
+            
+            // Select random questions for this round
+            let shuffledVocab = shuffleArray([...vocabDB]);
+            currentQuestions = shuffledVocab; // Play all vocabulary
+            TOTAL_QUESTIONS = currentQuestions.length;
+            
+            startScreen.classList.add('hidden');
+            endScreen.classList.add('hidden');
+            feedbackScreen.classList.add('hidden');
+            
+            loadQuestion();
+        }
+
+        function loadQuestion() {
+            if (currentQuestionIndex >= TOTAL_QUESTIONS) {
+                endGame();
+                return;
+            }
+
+            isAnsweringAllowed = true;
+            timeLeft = TIME_LIMIT;
+            
+            const currentQ = currentQuestions[currentQuestionIndex];
+            currentCorrectAnswer = currentQ.vi;
+            
+            questionCounter.innerText = `Câu: ${currentQuestionIndex + 1}/${TOTAL_QUESTIONS}`;
+            questionText.innerText = currentQ.en;
+
+            // Generate wrong options
+            let options = [currentQ.vi];
+            let pool = vocabDB.filter(v => v.vi !== currentQ.vi);
+            pool = shuffleArray(pool);
+            
+            for(let i=0; i<3; i++) {
+                options.push(pool[i].vi);
+            }
+            
+            options = shuffleArray(options);
+            renderButtons(options);
+            startTimer();
+        }
+
+        function renderButtons(options) {
+            answersContainer.innerHTML = '';
+            options.forEach((option, index) => {
+                const style = buttonStyles[index];
+                const btnHTML = `
+                    <button onclick="handleAnswer('${option}')" class="answer-btn ${style.class} rounded-lg text-white font-bold text-xl md:text-2xl flex items-center justify-start p-4 md:p-6 w-full h-full shadow-md">
+                        <div class="shape-container">
+                            <div class="${style.shape}"></div>
+                        </div>
+                        <span class="flex-grow text-center pr-8">${option}</span>
+                    </button>
+                `;
+                answersContainer.innerHTML += btnHTML;
+            });
+            
+            // Reset timer bar visually
+            timerBar.style.width = '100%';
+            timerBar.style.backgroundColor = '#333';
+        }
+
+        function startTimer() {
+            clearInterval(timerInterval);
+            
+            timerInterval = setInterval(() => {
+                timeLeft -= 0.1; // Update every 100ms for smooth bar
+                
+                let percentage = (timeLeft / TIME_LIMIT) * 100;
+                timerBar.style.width = `${percentage}%`;
+                
+                if (percentage < 30) {
+                    timerBar.style.backgroundColor = '#e21b3c'; // Red when time is low
+                } else if (percentage < 60) {
+                    timerBar.style.backgroundColor = '#d89e00'; // Yellow warning
+                }
+
+                if (timeLeft <= 0) {
+                    clearInterval(timerInterval);
+                    handleAnswer(null); // Time's up
+                }
+            }, 100);
+        }
+
+        function handleAnswer(selectedAnswer) {
+            if (!isAnsweringAllowed) return;
+            isAnsweringAllowed = false;
+            clearInterval(timerInterval);
+
+            // Disable buttons visually
+            const btns = document.querySelectorAll('.answer-btn');
+            btns.forEach(btn => btn.classList.add('disabled'));
+
+            const isCorrect = selectedAnswer === currentCorrectAnswer;
+            let pointsEarned = 0;
+
+            if (isCorrect) {
+                // Calculate points based on time left (Kahoot formula approximation)
+                const timeRatio = timeLeft / TIME_LIMIT;
+                pointsEarned = Math.round(MAX_POINTS * (timeRatio / 2 + 0.5));
+                score += pointsEarned;
+                updateScoreDisplay();
+            }
+
+            showFeedback(isCorrect, pointsEarned);
+        }
+
+        function updateScoreDisplay() {
+            scoreDisplay.innerText = score;
+        }
+
+        function showFeedback(isCorrect, points) {
+            feedbackScreen.classList.remove('hidden');
+            
+            if (isCorrect) {
+                feedbackBg.className = 'absolute inset-0 bg-[#26890c] bg-opacity-95'; // Green
+                feedbackTitle.innerText = "Chính xác!";
+                feedbackPoints.innerText = points;
+                feedbackPoints.parentElement.style.display = 'inline-block';
+            } else {
+                feedbackBg.className = 'absolute inset-0 bg-[#e21b3c] bg-opacity-95'; // Red
+                feedbackTitle.innerText = timeLeft <= 0 ? "Hết giờ!" : "Sai rồi!";
+                feedbackPoints.parentElement.style.display = 'none';
+            }
+            
+            feedbackCorrectAnswer.innerText = currentCorrectAnswer;
+
+            // Wait a few seconds then move to next question
+            setTimeout(() => {
+                feedbackScreen.classList.add('hidden');
+                currentQuestionIndex++;
+                loadQuestion();
+            }, 3000);
+        }
+
+        function endGame() {
+            endScreen.classList.remove('hidden');
+            document.getElementById('final-score').innerText = score;
+            
+            const msgEl = document.getElementById('end-message');
+            const maxPossible = TOTAL_QUESTIONS * MAX_POINTS;
+            const percentage = score / maxPossible;
+
+            if (percentage > 0.8) {
+                msgEl.innerText = "Tuyệt vời! Chuyên gia Cảnh sát thực thụ!";
+            } else if (percentage > 0.5) {
+                msgEl.innerText = "Khá lắm! Hãy luyện tập thêm để hoàn thiện nhé.";
+            } else {
+                msgEl.innerText = "Đừng nản chí! Học từ vựng cần thời gian.";
+            }
+        }
+
+    </script>
+</body>
+</html>
